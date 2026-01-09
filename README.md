@@ -348,10 +348,10 @@ Test suite with mocked dependencies for fast iteration:
 
 ```bash
 # Run all tests
-uv run pytest -v
+pytest -v
 
 # Run with detailed output
-uv run pytest -v -s
+pytest -v -s
 ```
 
 ---

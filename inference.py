@@ -82,7 +82,7 @@ class OnnxTextGenerator:
                 with open(config_path, "r") as f:
                     config = json.load(f)
                     self.eos_token_id = config.get("eos_token_id")
-                    if isinstance(self.eos_token_id, list):
+                    if isinstance(self.eos_token_id, list) and self.eos_token_id:
                         self.eos_token_id = self.eos_token_id[0]
                 logger.info(f"Loaded EOS token ID {self.eos_token_id} from config")
         except Exception as e:
@@ -123,9 +123,8 @@ class OnnxTextGenerator:
                         head_dim = hidden_size // num_attention_heads
 
                     # Handle GQA/MQA by checking num_key_value_heads
-                    num_key_value_heads = (
-                        config.get("num_key_value_heads", num_attention_heads)
-                        or num_key_value_heads
+                    num_key_value_heads = config.get(
+                        "num_key_value_heads", num_attention_heads
                     )
 
                 logger.info(
