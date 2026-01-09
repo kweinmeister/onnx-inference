@@ -1,0 +1,28 @@
+# Version control
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+env/
+venv/
+.venv/
+
+# Testing and development
+.pytest_cache/
+.ruff_cache/
+test_*.py
+
+# Build and deployment
+Dockerfile
+.dockerignore
+
+# Documentation
+README.md
+hf_cache/
