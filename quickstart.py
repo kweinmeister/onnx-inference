@@ -46,13 +46,15 @@ def example_streaming_generation() -> None:
     print("Streaming output: ", end="", flush=True)
 
     # Stream tokens one by one
-    for chunk in generator.stream_generate(prompt, max_new_tokens=25, temperature=0.8):
+    for chunk, _ in generator.stream_generate(
+        prompt, max_new_tokens=25, temperature=0.8
+    ):
         print(chunk, end="", flush=True)
 
     print("\n")
 
 
-def example_different_temperatures():
+def example_different_temperatures() -> None:
     """Example 3: Comparing different temperature settings."""
     print_section("Example 3: Temperature Comparison")
 

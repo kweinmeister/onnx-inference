@@ -145,9 +145,9 @@ async def stream_generate(request: GenerateRequest):
             prompt=request.prompt,
             max_new_tokens=request.max_new_tokens,
             temperature=request.temperature,
-            top_p=request.top_p
+            top_p=request.top_p,
         )
-        
+
         while True:
             try:
                 # Use a sentinel to detect end of iteration safely across threads
@@ -155,7 +155,7 @@ async def stream_generate(request: GenerateRequest):
                 result = await run_in_threadpool(lambda: next(iterator, None))
                 if result is None:
                     break
-                
+
                 chunk, _ = result
                 yield chunk
             except Exception as e:

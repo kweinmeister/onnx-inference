@@ -16,10 +16,13 @@ def mock_tokenizer() -> Mock:
         encoding.ids = list(range(1, len(tokens) + 2))
         encoding.attention_mask = [1] * len(encoding.ids)
         return encoding
+
     tokenizer.encode = mock_encode
 
     tokenizer.token_to_id = lambda t: 2 if t == "</s>" else None
-    tokenizer.decode = lambda ids, *args, **kwargs: " ".join([f"word{i}" for i in range(len(ids))])
+    tokenizer.decode = lambda ids, *args, **kwargs: " ".join(
+        [f"word{i}" for i in range(len(ids))]
+    )
 
     return tokenizer
 
@@ -32,7 +35,7 @@ def mock_onnx_session() -> Mock:
     # Mock outputs
     output = Mock()
     output.name = "logits"
-    
+
     outputs = [output]
     for i in range(4):
         out = Mock()
@@ -66,7 +69,7 @@ def mock_onnx_session() -> Mock:
         seq_len = ort_inputs["input_ids"].shape[1]
         logits = np.random.randn(1, seq_len, 50000).astype(np.float32)
         logits[0, -1, 100:110] += 5.0
-        
+
         results = [logits]
         for _ in range(8):
             results.append(np.zeros((1, 8, 1, 64), dtype=np.float32))
@@ -356,7 +359,6 @@ class TestModelLoading:
         call_args = mock_snapshot.call_args_list[0]
         assert call_args[1].get("local_files_only")
 
-
     @patch("inference.snapshot_download")
     @patch("inference.Tokenizer.from_file")
     @patch("inference.ort.InferenceSession")
@@ -365,7 +367,7 @@ class TestModelLoading:
     ) -> None:
         """Test that ValueError is raised if KV cache dimensions cannot be determined."""
         mock_snapshot.return_value = "/fake/model/path"
-        
+
         # Mock config with missing dimensions
         with patch("builtins.open", side_effect=IOError):
             # Mock inputs without shape info
@@ -373,68 +375,70 @@ class TestModelLoading:
             output = Mock()
             output.name = "logits"
             session.get_outputs.return_value = [output]
-            
+
             inputs = []
             past_input = Mock()
             past_input.name = "past_key_values.0.key"
-            past_input.shape = ["batch", "heads", "seq", "dim"] # Dynamic/unknown shapes
+            past_input.shape = [
+                "batch",
+                "heads",
+                "seq",
+                "dim",
+            ]  # Dynamic/unknown shapes
             inputs.append(past_input)
-            
+
             session.get_inputs.return_value = inputs
             session.get_providers.return_value = ["CPUExecutionProvider"]
             mock_session.return_value = session
-            
+
             with patch("os.path.exists", return_value=False):
-                with pytest.raises(ValueError, match="Could not determine KV cache dimensions"):
+                with pytest.raises(
+                    ValueError, match="Could not determine KV cache dimensions"
+                ):
                     OnnxTextGenerator()
-
-    def test_incremental_decoding_overlap(self, mocked_generator) -> None:
-        """Test the incremental decoding overlap logic directly."""
-        # Setup a scenario where we can verify overlap
-        # We need to simulate stream_generate's internal logic or inspect its output
-        
-        # 'Hello world' tokenized -> [1, 2]
-        # We want to ensure that if we generate [1, 2, 3] ('Hello world !'), 
-        # the yield is just ' !'
-        pass # Difficult to test internal logic without refactoring or using protected methods
-
 
     def test_utf8_split_handling(self, mocked_generator) -> None:
         """Test that generation waits for complete UTF-8 characters."""
         # Mock behavior where:
         # Step 1: Token A -> "Hello \ufffd" (incomplete)
         # Step 2: Token A + B -> "Hello World" (complete)
-        
+
         # We need to mock tokenizer.decode to return specific strings based on input length
         # mocked_generator.tokenizer is the mock object
-        
-        def split_behavior_decode(token_ids: list[int], skip_special_tokens: bool = False) -> str:
+
+        def split_behavior_decode(
+            token_ids: list[int], skip_special_tokens: bool = False
+        ) -> str:
             if len(token_ids) == 1:
                 return "Hello \ufffd"
             return "Hello World"
-            
+
         mocked_generator.tokenizer.decode = split_behavior_decode
-        
+
         # Manually verify stream_generate logic with this mock
         # We simulate the loop inputs
-        mocked_generator._prepare_generation_inputs = Mock(return_value=(
-            np.array([[1]]), # input_ids
-            np.array([[1]]), # attention_mask
-            {}, # past_key_values
-            [], # all_token_ids (initially empty from prompt for this test setup?) 
-            # Actually _prepare returns current_text. Let's say ""
-            "", 
-        ))
-        
+        mocked_generator._prepare_generation_inputs = Mock(
+            return_value=(
+                np.array([[1]]),  # input_ids
+                np.array([[1]]),  # attention_mask
+                {},  # past_key_values
+                [],  # all_token_ids (initially empty from prompt for this test setup?)
+                # Actually _prepare returns current_text. Let's say ""
+                "",
+            )
+        )
+
         # Mock inference step to return dummy data
-        mocked_generator._run_inference_step = Mock(return_value=(
-            np.array([[[0.1]*50000]]), {} 
-        ))
-        mocked_generator._sample_token = Mock(side_effect=[
-            np.array([[1]]), # First token generated
-            np.array([[3]]), # Second token generated (avoid EOS=2)
-        ])
-        
+        mocked_generator._run_inference_step = Mock(
+            return_value=(np.array([[[0.1] * 50000]]), {})
+        )
+        mocked_generator._sample_token = Mock(
+            side_effect=[
+                np.array([[1]]),  # First token generated
+                np.array([[3]]),  # Second token generated (avoid EOS=2)
+            ]
+        )
+
         # Run stream_generate for 2 steps
         chunks = []
         for chunk, _ in mocked_generator.stream_generate("prompt", max_new_tokens=2):
@@ -442,17 +446,17 @@ class TestModelLoading:
 
         # First step: "Hello \ufffd" -> ends with replacement char -> yield should be skipped (or empty)
         # Second step: "Hello World" -> "Hello World"[0:] -> "Hello World"
-        
-        # Wait, if current_text starts as "", and first decode is "Hello \ufffd". 
+
+        # Wait, if current_text starts as "", and first decode is "Hello \ufffd".
         # Logic: len("Hello \ufffd") > 0. Ends with \ufffd. Condition `not full_text.endswith("\ufffd")` fails.
         # So nothing yielded. current_text remains "".
-        
+
         # Second step: tokens [1, 2]. decode -> "Hello World".
-        # Logic: len("Hello World") > 0. Not ends with \ufffd. 
+        # Logic: len("Hello World") > 0. Not ends with \ufffd.
         # new_text_chunk = "Hello World"[0:] = "Hello World".
         # current_text becomes "Hello World".
         # yield "Hello World".
-        
+
         assert len(chunks) == 1
         assert chunks[0] == "Hello World"
 

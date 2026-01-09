@@ -26,3 +26,4 @@ Dockerfile
 # Documentation
 README.md
 hf_cache/
+quickstart.py

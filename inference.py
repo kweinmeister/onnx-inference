@@ -216,10 +216,10 @@ class OnnxTextGenerator:
                 self.eos_token_id is not None
                 and next_token_id.item() == self.eos_token_id
             ):
-                yield ("", {
-                    "tokens_generated": tokens_generated,
-                    "finish_reason": "stop"
-                })
+                yield (
+                    "",
+                    {"tokens_generated": tokens_generated, "finish_reason": "stop"},
+                )
                 break
 
             all_token_ids.append(next_token_id.item())
@@ -228,21 +228,21 @@ class OnnxTextGenerator:
             # Prepare for next iteration
             current_input_ids = next_token_id
             current_seq_len += 1
-            
+
             # Full-Decode Difference "Production-Grade" Strategy
             # 1. Decode the full sequence
             full_text = self.tokenizer.decode(all_token_ids, skip_special_tokens=True)
-            
+
             # 2. Check if text grew and is not ending in a replacement character (UTF-8 check)
             # "\ufffd" is the replacement character used when a multi-byte char is incomplete
             if len(full_text) > len(current_text) and not full_text.endswith("\ufffd"):
-                new_text_chunk = full_text[len(current_text):]
+                new_text_chunk = full_text[len(current_text) :]
                 current_text = full_text
-                
-                yield (new_text_chunk, {
-                    "tokens_generated": tokens_generated,
-                    "finish_reason": None 
-                })
+
+                yield (
+                    new_text_chunk,
+                    {"tokens_generated": tokens_generated, "finish_reason": None},
+                )
 
     def _prepare_generation_inputs(
         self, prompt: str, max_new_tokens: int
@@ -359,10 +359,6 @@ class OnnxTextGenerator:
         logits = logits / temperature
         logits -= np.max(logits)  # Numerical stability
         probs = np.exp(logits)
-        probs /= np.sum(probs)
-        
-        # Add epsilon for numerical stability
-        probs += 1e-12
         probs /= np.sum(probs)
 
         # Top-P (Nucleus) Sampling

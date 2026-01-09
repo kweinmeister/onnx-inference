@@ -263,8 +263,8 @@ gcloud run deploy onnx-inference \
 
 | Setting | Value | Reason |
 |---------|-------|--------|
-| Memory | 2Gi | Model + overhead |
-| CPU | 4 | Optimal for ONNX Runtime |
+| Memory | 4Gi | Model + overhead |
+| CPU | 2 | Optimal for ONNX Runtime |
 | Concurrency | 4 | Balance parallelism & resources |
 
 **Get your service URL:**
