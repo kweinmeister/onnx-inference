@@ -1,0 +1,7 @@
+fastapi==0.128.0
+huggingface-hub==1.2.4
+numpy>=2.4.0
+onnxruntime==1.23.2
+pydantic==2.12.5
+tokenizers==0.22.2
+uvicorn==0.40.0
