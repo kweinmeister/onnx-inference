@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+import shutil
 from typing import Any, Dict, Iterator, List, Optional, Union, cast
+
+import onnx
 
 import onnxruntime
 import onnxruntime_genai as _og
@@ -45,7 +48,6 @@ def bundle_onnx_model(
     Returns:
         Path to the bundled model file, or None if bundling is skipped/failed.
     """
-    import onnx
 
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Input model not found: {input_path}")
@@ -466,11 +468,9 @@ class OnnxTextGenerator:
                     self.model_folder, filename, fallback=False
                 )
                 full_path = os.path.join(self.model_folder, rel_path)
-
                 # Copy to root
-                import shutil
-
                 shutil.copy2(full_path, root_path)
+
                 logger.info(
                     f"✓ Copied tokenizer file {filename} from {rel_path} to root"
                 )
@@ -489,8 +489,6 @@ class OnnxTextGenerator:
                 source_path = os.path.join(repo_root, filename)
                 if os.path.exists(source_path):
                     try:
-                        import shutil
-
                         shutil.copy2(source_path, target_path)
                         logger.info(
                             f"✓ Copied tokenizer file {filename} from repo root to subdir"

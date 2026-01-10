@@ -383,7 +383,7 @@ class GenAIConfigGenerator:
                 for init in graph.initializer:
                     if "q_proj" in init.name:
                         out_dim = init.dims[0]
-                        if "Q4" in init.name:
+                        if "q4" in init.name.lower():
                             if out_dim % dims["head_dim"] == 0:
                                 dims["num_attention_heads"] = (
                                     out_dim // dims["head_dim"]
