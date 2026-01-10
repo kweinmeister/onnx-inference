@@ -272,7 +272,7 @@ class OnnxTextGenerator:
         if check_beams > 1:
             config_path = os.path.join(self.model_folder, "genai_config.json")
             try:
-                with open(config_path, "r") as f:
+                with open(config_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
                     model_cfg = cfg.get("model", {})
                     if (
@@ -537,7 +537,7 @@ class OnnxTextGenerator:
                     f"Found existing config at {config_path}, copying to root..."
                 )
                 try:
-                    with open(config_path, "r") as f:
+                    with open(config_path, "r", encoding="utf-8") as f:
                         config = json.load(f)
 
                     # Update ALL 'filename' fields to the relative path within the repo
@@ -551,7 +551,7 @@ class OnnxTextGenerator:
                     # Run the recursive fixer to ensure everything else points to valid files
                     self._fix_paths_in_config(config)
 
-                    with open(root_config_path, "w") as f:
+                    with open(root_config_path, "w", encoding="utf-8") as f:
                         json.dump(config, f, indent=4)
 
                     logger.info(
@@ -580,7 +580,7 @@ class OnnxTextGenerator:
             for meta_path in candidate_metadata:
                 if os.path.exists(meta_path) and os.path.getsize(meta_path) > 0:
                     try:
-                        with open(meta_path, "r") as f:
+                        with open(meta_path, "r", encoding="utf-8") as f:
                             content = f.read().strip()
                             if content:
                                 data = json.loads(content)
@@ -600,7 +600,7 @@ class OnnxTextGenerator:
             genai_config = self._create_genai_config(hf_config, full_model_path)
 
             # Save to root directory
-            with open(root_config_path, "w") as f:
+            with open(root_config_path, "w", encoding="utf-8") as f:
                 json.dump(genai_config, f, indent=4)
 
             logger.info(f"✓ Generated genai_config.json at {root_config_path}")
@@ -622,7 +622,7 @@ class OnnxTextGenerator:
         If not, tries to detect the correct ones recursively.
         """
         try:
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
 
             any_changed = False
@@ -638,7 +638,7 @@ class OnnxTextGenerator:
                 any_changed = True
 
             if any_changed:
-                with open(config_path, "w") as f:
+                with open(config_path, "w", encoding="utf-8") as f:
                     json.dump(config, f, indent=4)
                 logger.info("✓ Updated genai_config.json with verified paths")
                 return True

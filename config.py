@@ -443,7 +443,7 @@ class GenAIConfigGenerator:
         tok_path = os.path.join(model_folder, "tokenizer.json")
         if os.path.exists(tok_path):
             try:
-                with open(tok_path, "r") as f:
+                with open(tok_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 # Vocab size
@@ -466,7 +466,7 @@ class GenAIConfigGenerator:
         added_path = os.path.join(model_folder, "added_tokens.json")
         if os.path.exists(added_path):
             try:
-                with open(added_path, "r") as f:
+                with open(added_path, "r", encoding="utf-8") as f:
                     added_data = json.load(f)
                     if isinstance(added_data, dict):
                         vocab_map.update(added_data)
@@ -479,7 +479,7 @@ class GenAIConfigGenerator:
         tok_cfg_path = os.path.join(model_folder, "tokenizer_config.json")
         if os.path.exists(tok_cfg_path):
             try:
-                with open(tok_cfg_path, "r") as f:
+                with open(tok_cfg_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
                 # Dynamic Lookup
@@ -514,7 +514,7 @@ class GenAIConfigGenerator:
             return params
 
         try:
-            with open(gen_path, "r") as f:
+            with open(gen_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             # Context Length candidates

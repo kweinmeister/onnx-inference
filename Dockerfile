@@ -26,9 +26,9 @@ ENV ONNX_FILE=${ONNX_FILE}
 ENV EXECUTION_PROVIDER=${EXECUTION_PROVIDER}
 
 # Download metadata and model separately to ensure all files are captured correctly
-RUN hf download ${MODEL_ID} --include "*.json" --include "*.txt" --include "*.model" --include "*.py" && \
+RUN hf download "${MODEL_ID}" --include "*.json" --include "*.txt" --include "*.model" --include "*.py" && \
     ONNX_BASE="${ONNX_FILE%.onnx}" && \
-    hf download ${MODEL_ID} --include "**/${ONNX_BASE}.onnx*" --include "**/*.data"
+    hf download "${MODEL_ID}" --include "**/${ONNX_BASE}.onnx*" --include "**/*.data"
 
 RUN adduser --disabled-password --gecos '' appuser && \
     mkdir -p ${HF_HOME} && \
