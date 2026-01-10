@@ -6,8 +6,9 @@ This script demonstrates the basic usage of the OnnxTextGenerator class
 for text generation using ONNX Runtime on CPU.
 """
 
+import argparse
+
 from inference import OnnxTextGenerator
-import sys
 
 
 def print_section(title: str) -> None:
@@ -17,14 +18,9 @@ def print_section(title: str) -> None:
     print(f"{'=' * 60}\n")
 
 
-def example_basic_generation() -> None:
-    """Example 1: Basic text generation with default model."""
+def example_basic_generation(generator: OnnxTextGenerator) -> None:
+    """Example 1: Basic text generation."""
     print_section("Example 1: Basic Text Generation")
-
-    # Initialize the generator with default model (Gemma-3-270m-it-ONNX)
-    print("Initializing OnnxTextGenerator with default model...")
-    generator = OnnxTextGenerator()
-    print("✓ Model loaded successfully!\n")
 
     # Generate text from a prompt
     prompt = "The future of artificial intelligence is"
@@ -35,11 +31,9 @@ def example_basic_generation() -> None:
     print(f"Generated text:\n{prompt}{result['generated_text']}\n")
 
 
-def example_streaming_generation() -> None:
+def example_streaming_generation(generator: OnnxTextGenerator) -> None:
     """Example 2: Streaming text generation (token-by-token)."""
     print_section("Example 2: Streaming Generation")
-
-    generator = OnnxTextGenerator()
 
     prompt = "Once upon a time, in a land far away,"
     print(f"Prompt: '{prompt}'")
@@ -54,48 +48,38 @@ def example_streaming_generation() -> None:
     print("\n")
 
 
-def example_different_temperatures() -> None:
+def example_different_temperatures(generator: OnnxTextGenerator) -> None:
     """Example 3: Comparing different temperature settings."""
     print_section("Example 3: Temperature Comparison")
 
-    generator = OnnxTextGenerator()
     prompt = "The best programming language is"
+    print(f"Prompt: '{prompt}'")
 
-    temperatures = [0.0, 0.5, 1.0]
+    # Run only 2 temps to save time if running sequentially
+    temperatures = [0.0, 0.7]
 
     for temp in temperatures:
         result = generator.generate(prompt, max_new_tokens=15, temperature=temp)
-        temp_name = "Greedy (deterministic)" if temp == 0 else "Sampling (creative)"
-        print(f"Temperature={temp} ({temp_name}):")
-        print(f"  → {result['generated_text']}\n")
+        temp_name = "Greedy" if temp == 0 else "Creative"
+        print(f"\nTemperature={temp} ({temp_name}):")
+        print(f"  → {prompt}{result['generated_text']}")
 
 
-def example_code_completion() -> None:
+def example_code_completion(generator: OnnxTextGenerator) -> None:
     """Example 4: Code completion."""
     print_section("Example 4: Code Completion")
-
-    # Using SmolLM2 which is better at code
-    print("Initializing with SmolLM2-135M (better for code)...")
-    generator = OnnxTextGenerator(
-        model_id="onnx-community/SmolLM2-135M-ONNX",
-        onnx_file="onnx/model.onnx",
-        allow_patterns=["onnx/model.onnx*", "*.json"],
-    )
-    print("✓ Model loaded!\n")
 
     prompt = 'def calculate_fibonacci(n):\n    """\n    Calculate the nth Fibonacci number.\n    """\n    '
     print(f"Code prompt:\n{prompt}")
     print("Completion:")
 
-    result = generator.generate(prompt, max_new_tokens=40, temperature=0.3)
+    result = generator.generate(prompt, max_new_tokens=40, temperature=0.2)
     print(f"{result['generated_text']}\n")
 
 
-def example_custom_parameters() -> None:
+def example_custom_parameters(generator: OnnxTextGenerator) -> None:
     """Example 5: Using custom generation parameters."""
     print_section("Example 5: Custom Parameters")
-
-    generator = OnnxTextGenerator()
 
     prompt = "Write a haiku about coding:"
     print(f"Prompt: '{prompt}'\n")
@@ -111,61 +95,110 @@ def example_custom_parameters() -> None:
     print(f"Generated (temp=0.9, top_p=0.85):\n{result['generated_text']}\n")
 
 
+def example_beam_search(generator: OnnxTextGenerator) -> None:
+    """Example 6: Using beam search for more deterministic, higher quality results."""
+    print_section("Example 6: Beam Search")
+
+    prompt = "The three laws of robotics are:"
+    print(f"Prompt: '{prompt}'")
+    print("Generating with 5 beams...\n")
+
+    # Beam search usually results in higher quality but more deterministic output
+    result = generator.generate(prompt, max_new_tokens=50, num_beams=5)
+    print(f"Generated text:\n{prompt}{result['generated_text']}\n")
+
+
 def main() -> None:
-    """Run all examples or specific ones based on command-line arguments."""
+    """Run examples with optional model override."""
+    parser = argparse.ArgumentParser(description="ONNX Text Generation Quickstart")
+    parser.add_argument(
+        "example",
+        nargs="?",
+        default="all",
+        help="Specific example to run (1-6, or 'all')",
+    )
+    parser.add_argument(
+        "--model",
+        "-m",
+        default=None,
+        help="Hugging Face model ID to use (overrides default)",
+    )
+    parser.add_argument(
+        "--onnx-file",
+        "-f",
+        default=None,
+        help="Specific ONNX file to use (e.g. model_q4f16.onnx). If None, downloads all ONNX files.",
+    )
+    parser.add_argument(
+        "--execution-provider",
+        "-ep",
+        default=None,
+        help="Execution provider to use (default: auto-selection)",
+    )
+    parser.add_argument(
+        "--num-beams",
+        "-b",
+        type=int,
+        default=1,
+        help="Number of beams for search (default: 1, which is greedy/sampling)",
+    )
+    args = parser.parse_args()
+
     print("\n" + "=" * 60)
     print("  ONNX Text Generation - Quickstart Examples")
     print("=" * 60)
 
-    # Check if user wants specific examples
-    if len(sys.argv) > 1:
-        arg = sys.argv[1].lower()
-
-        examples = {
-            "1": example_basic_generation,
-            "basic": example_basic_generation,
-            "2": example_streaming_generation,
-            "stream": example_streaming_generation,
-            "3": example_different_temperatures,
-            "temperature": example_different_temperatures,
-            "temp": example_different_temperatures,
-            "4": example_code_completion,
-            "code": example_code_completion,
-            "5": example_custom_parameters,
-            "custom": example_custom_parameters,
-        }
-
-        if arg in examples:
-            examples[arg]()
-        else:
-            print(f"\nUnknown example: {arg}")
-            print("\nAvailable examples:")
-            print("  1 or basic  - Basic text generation")
-            print("  2 or stream - Streaming generation")
-            print("  3 or temp   - Temperature comparison")
-            print("  4 or code   - Code completion")
-            print("  5 or custom - Custom parameters")
-            print("\nUsage: python quickstart.py [example_name]")
+    if args.model:
+        print(f"Using custom model: {args.model}")
     else:
-        # Run all examples sequentially
-        try:
-            example_basic_generation()
-            example_streaming_generation()
-            example_different_temperatures()
-            example_code_completion()
-            example_custom_parameters()
+        print("Using default model")
 
+    # Initialize generator once
+    try:
+        generator = OnnxTextGenerator(
+            model_id=args.model,
+            onnx_file=args.onnx_file,
+            execution_providers=args.execution_provider,
+            num_beams=args.num_beams,
+        )
+        print(
+            f"✓ Model loaded successfully using {generator.execution_provider} (beams={args.num_beams})!\n"
+        )
+    except Exception as e:
+        print(f"Failed to load model: {e}")
+        return
+
+    # Map examples
+    examples = {
+        "1": example_basic_generation,
+        "basic": example_basic_generation,
+        "2": example_streaming_generation,
+        "stream": example_streaming_generation,
+        "3": example_different_temperatures,
+        "temp": example_different_temperatures,
+        "4": example_code_completion,
+        "code": example_code_completion,
+        "5": example_custom_parameters,
+        "custom": example_custom_parameters,
+        "6": example_beam_search,
+        "beam": example_beam_search,
+    }
+
+    if args.example.lower() == "all":
+        try:
+            example_basic_generation(generator)
+            example_streaming_generation(generator)
+            example_different_temperatures(generator)
+            example_code_completion(generator)
+            example_custom_parameters(generator)
+            example_beam_search(generator)
         except KeyboardInterrupt:
             print("\n\nExecution interrupted. Goodbye! 👋")
-        except Exception as e:
-            print(f"\n\nError: {e}")
-            import traceback
-
-            traceback.print_exc()
-
-    print("\n" + "=" * 60)
-    print("  For more examples, see test_inference.py")
-    print("=" * 60 + "\n")
+    elif args.example in examples:
+        examples[args.example](generator)
+    else:
+        print(f"\nUnknown example: {args.example}")
+        print("Available examples: 1, 2, 3, 4, 5, 6, or all")
 
 
 if __name__ == "__main__":

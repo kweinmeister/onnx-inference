@@ -7,9 +7,9 @@
 
 > **A reference implementation for embedded LLM inference using ONNX Runtime.**
 
-This project demonstrates how to run Large Language Models locally with hardware acceleration (CUDA, CoreML, CPU) and smart caching. It is designed to provide **easy, direct access** to inference from your own code for embedded applications.
+This project demonstrates how to run Large Language Models locally with hardware acceleration (CUDA, CoreML, CPU) and automated model configuration. It is designed to provide **easy, direct access** to inference from your own code for embedded applications.
 
-*Note: This is a sample demonstration for local/embedded use cases, rather than a dedicated high-throughput production server like vLLM or TGI.*
+*Note: This is a sample demonstration for local/embedded use cases, rather than a dedicated high-throughput production server.*
 
 ---
 
@@ -63,9 +63,6 @@ print(result['generated_text'])
 "
 ```
 
-**First run**: Downloads models and caches locally  
-**Subsequent runs**: Instant load from cache, zero network requests ⚡
-
 **Hardware Acceleration**: Automatically uses the best available execution provider:
 
 - **CUDA** (NVIDIA GPUs) for maximum performance
@@ -87,10 +84,16 @@ python quickstart.py
 
 This project has been tested with these ONNX-optimized models:
 
-- **[gemma-3-270m-it-ONNX](https://huggingface.co/onnx-community/gemma-3-270m-it-ONNX)**
+- **[Llama-3.2-1B-Instruct-ONNX](https://huggingface.co/onnx-community/Llama-3.2-1B-Instruct-onnx-web-gqa)**
+- **[Phi-3.5-mini-instruct-onnx](https://huggingface.co/microsoft/Phi-3.5-mini-instruct-onnx)**
+- **[Phi-4-multimodal-instruct-onnx](https://huggingface.co/microsoft/Phi-4-multimodal-instruct-onnx)**
+- **[Qwen2.5-0.5B-Instruct-ONNX](https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct-ONNX)**
+- **[Qwen3-0.6B-DQ-ONNX](https://huggingface.co/onnx-community/Qwen3-0.6B-DQ-ONNX)**
 - **[SmolLM2-135M-ONNX](https://huggingface.co/onnx-community/SmolLM2-135M-ONNX)**
 
-The inference engine is model-agnostic and should work with any ONNX-compatible language model.
+The inference engine includes logic to handle common configuration issues found in Hugging Face ONNX exports, such as path mismatches or unsupported execution providers in the `genai_config.json`.
+
+Models that are already packaged with an optimized [`genai_config.json`](https://onnxruntime.ai/docs/genai/reference/config.html) do not need this extra code, as the ONNX Runtime GenAI API can load them directly. However, for models that lack this file (or have a corrupted version), this engine automatically infers the configuration for a smooth experience.
 
 ---
 
@@ -162,8 +165,7 @@ for chunk, metadata in generator.stream_generate(
 # Use a different ONNX model
 generator = OnnxTextGenerator(
     model_id="onnx-community/SmolLM2-135M-ONNX",
-    onnx_file="onnx/model.onnx",
-    allow_patterns=["onnx/model.onnx*", "*.json"]
+    onnx_file="onnx/model.onnx"
 )
 
 result = generator.generate("def fibonacci(n):", max_new_tokens=40)
@@ -195,6 +197,7 @@ python quickstart.py stream    # Streaming demo
 python quickstart.py temp      # Temperature comparison
 python quickstart.py code      # Code completion
 python quickstart.py custom    # Custom parameters
+python quickstart.py beam      # Beam search demo
 ```
 
 ### 3. FastAPI Server
@@ -232,7 +235,7 @@ Build and run containerized version:
 ```bash
 # Build image (includes model download at build time)
 # Optionally specify MODEL_ID build argument
-docker build -t onnx-inference --build-arg MODEL_ID=onnx-community/gemma-3-270m-it-ONNX .
+docker build -t onnx-inference --build-arg MODEL_ID=onnx-community/SmolLM2-135M-Instruct-ONNX .
 
 # Run container
 docker run -p 8080:8080 onnx-inference
@@ -240,35 +243,26 @@ docker run -p 8080:8080 onnx-inference
 # Access at http://localhost:8080
 ```
 
-**Note:** The default Dockerfile bakes in the Gemma-3 model for faster cold starts. You can change this by passing the `MODEL_ID` build argument.
+**Note:** The default Dockerfile bakes in the SmolLM2 model for faster cold starts. You can change this by passing the `MODEL_ID` build argument.
 
 **Why bake the model into the image?** Baking the model eliminates cold-start downloads, speeds up container startup, ensures consistent deployments, and enables offline operation.
 
 ### Google Cloud Run
 
-Deploy to serverless infrastructure:
+Deploy to serverless infrastructure (update your region as needed):
 
 ```bash
-# Set your region
 REGION=us-central1
 
-# Deploy from source (builds automatically)
 gcloud run deploy onnx-inference \
-  --source . \
-  --region $REGION \
-  --memory 4Gi \
-  --cpu 2 \
+  --allow-unauthenticated \
   --concurrency 4 \
-  --allow-unauthenticated
+  --cpu 2 \
+  --labels dev-tutorial=onnx-inference \
+  --memory 4Gi \
+  --region $REGION \
+  --source .
 ```
-
-**Configuration:**
-
-| Setting | Value | Reason |
-|---------|-------|--------|
-| Memory | 4Gi | Model + overhead |
-| CPU | 2 | Optimal for ONNX Runtime |
-| Concurrency | 4 | Balance parallelism & resources |
 
 **Get your service URL:**
 
@@ -329,15 +323,6 @@ curl -X POST "$SERVICE_URL/generate" \
     "max_new_tokens": 40,
     "temperature": 0.3
   }'
-
-# Few-shot PII masking
-curl -X POST "$SERVICE_URL/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Mask PII:\nText: Call 555-1234\nMasked: Call [PHONE]\nText: Email user@example.com\nMasked:",
-    "max_new_tokens": 20,
-    "temperature": 0.1
-  }'
 ```
 
 ---
@@ -352,18 +337,27 @@ pytest -v
 
 # Run with detailed output
 pytest -v -s
+
+# Run linter
+ruff check .
+
+# Run type checking
+ty check
 ```
 
 ---
 
 ## 🏗️ Project Structure
 
-```
+```text
 onnx-inference/
-├── inference.py              # Core inference engine
+├── inference.py              # Main inference engine
+├── config.py                 # GenAI config generation & inference logic
 ├── app.py                    # FastAPI server
+├── quickstart.py             # Feature demonstrations
 ├── test_inference.py         # Test suite with mocks
-├── requirements.txt          # Dependencies
+├── requirements.txt          # Production dependencies
+├── requirements-dev.txt      # Development & testing dependencies
 ├── Dockerfile                # Container definition
 └── README.md                 # This file
 ```

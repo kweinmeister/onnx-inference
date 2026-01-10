@@ -1,0 +1,43 @@
+[project]
+name = "onnx-inference"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "test_*.py",
+    "setup.py",
+    "conftest.py",
+    "*/__init__.py",
+    "quickstart.py",
+    "verify_real_config.py",
+    "venv/*",
+    ".venv/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:"
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "asyncio: mark test as async"
+]
+testpaths = ["."]
+python_files = "test_*.py"
+addopts = """
+    --cov=.
+    --cov-report=term-missing
+    --cov-report=html
+    --durations=5
+    -v
+"""
