@@ -17,8 +17,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Pre-download the model to prevent cold starts
-ARG MODEL_ID=onnx-community/gemma-3-270m-it-ONNX
-RUN hf download "${MODEL_ID}" --include "onnx/model_q4f16.onnx*" --include "*.json" --include "*.model"
+ARG MODEL_ID=onnx-community/SmolLM2-135M-ONNX
+ARG ONNX_FILE=model_q4f16.onnx
+ARG EXECUTION_PROVIDER=
+
+ENV MODEL_ID=${MODEL_ID}
+ENV ONNX_FILE=${ONNX_FILE}
+ENV EXECUTION_PROVIDER=${EXECUTION_PROVIDER}
+
+# Download metadata and model separately to ensure all files are captured correctly
+RUN hf download ${MODEL_ID} --include "*.json" --include "*.txt" --include "*.model" --include "*.py" && \
+    ONNX_BASE=$(echo ${ONNX_FILE} | sed 's/\.onnx$//') && \
+    hf download ${MODEL_ID} --include "**/${ONNX_BASE}.onnx*" --include "**/*.data"
 
 RUN adduser --disabled-password --gecos '' appuser && \
     mkdir -p ${HF_HOME} && \

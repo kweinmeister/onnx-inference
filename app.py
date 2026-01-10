@@ -1,9 +1,13 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Dict, Optional
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
-import logging
+from starlette.concurrency import run_in_threadpool
+
 from inference import OnnxTextGenerator
 
 # Configure logging
@@ -20,8 +24,25 @@ async def lifespan(app: FastAPI):
     # Load the model during startup
     logger.info("Initializing ONNX model...")
     try:
-        ml_models["generator"] = OnnxTextGenerator()
-        logger.info("✓ Model loaded successfully")
+        import os
+
+        model_id = os.getenv("MODEL_ID")
+        onnx_file = os.getenv("ONNX_FILE")
+        execution_provider = os.getenv("EXECUTION_PROVIDER")
+
+        # Initialize with env vars if present, otherwise uses class defaults
+        init_kwargs: Dict[str, Any] = {}
+        if model_id:
+            init_kwargs["model_id"] = model_id
+        if onnx_file:
+            init_kwargs["onnx_file"] = onnx_file
+        if execution_provider:
+            init_kwargs["execution_providers"] = execution_provider
+
+        ml_models["generator"] = OnnxTextGenerator(**init_kwargs)
+        logger.info(
+            f"✓ Model loaded (ID: {model_id or 'default'}, File: {onnx_file or 'default'}, EP: {execution_provider or 'auto'})"
+        )
     except Exception as e:
         logger.error(f"Failed to initialize ONNX model: {e}")
         raise
@@ -135,35 +156,42 @@ async def stream_generate(request: GenerateRequest):
 
     # Capture generator in closure
     gen = generator
+    queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+    loop = asyncio.get_event_loop()
 
-    # Create a thread-safe iterator wrapper
-    async def async_generator():
-        """Async wrapper for the synchronous generator."""
-        # Create the iterator in a thread to run the initial logic
-        iterator = await run_in_threadpool(
-            gen.stream_generate,
-            prompt=request.prompt,
-            max_new_tokens=request.max_new_tokens,
-            temperature=request.temperature,
-            top_p=request.top_p,
-        )
+    def producer():
+        """Synchronous producer running in a thread pool."""
+        try:
+            # The synchronous generator runs entirely in this background thread
+            iterator = gen.stream_generate(
+                prompt=request.prompt,
+                max_new_tokens=request.max_new_tokens,
+                temperature=request.temperature,
+                top_p=request.top_p,
+            )
+            for chunk, _ in iterator:
+                # Use call_soon_threadsafe/run_coroutine_threadsafe to push to queue from thread
+                loop.call_soon_threadsafe(queue.put_nowait, chunk)
 
+            # Sentinel for completion
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+        except Exception as e:
+            logger.error(f"Error during streaming: {e}")
+            loop.call_soon_threadsafe(queue.put_nowait, f"\n[ERROR: {str(e)}]")
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    # Start the generation loop in the background
+    loop.run_in_executor(None, producer)
+
+    async def consumer() -> AsyncGenerator[str, None]:
+        """Asynchronous consumer yielding from the queue."""
         while True:
-            try:
-                # Use a sentinel to detect end of iteration safely across threads
-                # Wrap next in a lambda to satisfy linter argument count checks
-                result = await run_in_threadpool(lambda: next(iterator, None))
-                if result is None:
-                    break
-
-                chunk, _ = result
-                yield chunk
-            except Exception as e:
-                logger.error(f"Error during streaming: {e}")
-                yield f"\n[ERROR: {str(e)}]"
+            item = await queue.get()
+            if item is None:
                 break
+            yield item
 
-    return StreamingResponse(async_generator(), media_type="text/plain")
+    return StreamingResponse(consumer(), media_type="text/plain")
 
 
 if __name__ == "__main__":

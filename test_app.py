@@ -1,7 +1,10 @@
-from fastapi.testclient import TestClient
+import os
 from unittest.mock import MagicMock, patch
-from app import app
+
 import pytest
+from fastapi.testclient import TestClient
+
+from app import app, lifespan
 
 client = TestClient(app)
 
@@ -68,3 +71,53 @@ def test_stream_generate_endpoint(mock_ml_models, mock_generator):
         assert response.status_code == 200
         chunks = list(response.iter_text())
         assert "".join(chunks) == "Test response"
+
+
+@pytest.mark.asyncio
+async def test_lifespan_startup_shutdown(mock_ml_models):
+    """Test standard startup and shutdown with default env."""
+    mock_init = MagicMock()
+
+    with (
+        patch("app.OnnxTextGenerator", side_effect=mock_init) as mock_cls,
+        patch.dict(os.environ, {}, clear=True),
+    ):
+        async with lifespan(app):
+            # STARTUP
+            mock_cls.assert_called_once()
+            assert "generator" in mock_ml_models
+            assert mock_ml_models["generator"] == mock_init.return_value
+
+        # SHUTDOWN
+        assert len(mock_ml_models) == 0
+
+
+@pytest.mark.asyncio
+async def test_lifespan_startup_env_vars(mock_ml_models):
+    """Test startup with environment variable overrides."""
+    mock_init = MagicMock()
+    env = {
+        "MODEL_ID": "custom/model",
+        "ONNX_FILE": "custom.onnx",
+        "EXECUTION_PROVIDER": "cuda",
+    }
+
+    with (
+        patch("app.OnnxTextGenerator", side_effect=mock_init) as mock_cls,
+        patch.dict(os.environ, env),
+    ):
+        async with lifespan(app):
+            mock_cls.assert_called_once()
+            call_kwargs = mock_cls.call_args[1]
+            assert call_kwargs["model_id"] == "custom/model"
+            assert call_kwargs["onnx_file"] == "custom.onnx"
+            assert call_kwargs["execution_providers"] == "cuda"
+
+
+@pytest.mark.asyncio
+async def test_lifespan_startup_failure(mock_ml_models):
+    """Test startup exception handling."""
+    with patch("app.OnnxTextGenerator", side_effect=RuntimeError("Startup Failed")):
+        with pytest.raises(RuntimeError, match="Startup Failed"):
+            async with lifespan(app):
+                pass

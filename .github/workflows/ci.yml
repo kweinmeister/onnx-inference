@@ -22,5 +22,7 @@ jobs:
         pip install -r requirements.txt -r requirements-dev.txt
     - name: Lint with ruff
       uses: astral-sh/ruff-action@v3
+    - name: Type check with ty
+      run: ty check
     - name: Test with pytest
       run: pytest
