@@ -67,19 +67,6 @@ def bundle_onnx_model(
         model_head = onnx.load(input_path, load_external_data=False)
         base_dir = os.path.dirname(input_path)
 
-        for tensor in model_head.graph.initializer:
-            if tensor.data_location == onnx.TensorProto.EXTERNAL:
-                # Find the location
-                for entry in tensor.external_data:
-                    if entry.key == "location":
-                        data_file = os.path.join(base_dir, entry.value)
-                        if os.path.exists(data_file):
-                            # We approximate by summing file sizes of referenced files
-                            # Note: This might double-count if multiple tensors use same file,
-                            # but safer to overestimate for the limit check.
-                            # A more accurate check would be set(files).
-                            pass
-
         # Robust size check: Sum unique external files + proto size
         external_files = set()
         for tensor in model_head.graph.initializer:

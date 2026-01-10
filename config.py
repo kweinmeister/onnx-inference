@@ -406,9 +406,8 @@ class GenAIConfigGenerator:
                 if any(c in init.name for c in self.POS_EMBED_CANDIDATES):
                     if len(init.dims) == 2:
                         max_dim = max(init.dims)
-                        if max_dim >= 4096:
-                            dims["context_length"] = max_dim
-                            break
+                        dims["context_length"] = max_dim
+                        break
 
             return {
                 "inputs": inputs,

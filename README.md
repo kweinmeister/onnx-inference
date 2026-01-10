@@ -337,6 +337,12 @@ pytest -v
 
 # Run with detailed output
 pytest -v -s
+
+# Run linter
+ruff check .
+
+# Run type checking
+ty check
 ```
 
 ---

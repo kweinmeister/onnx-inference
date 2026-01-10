@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict, Optional
 
@@ -24,8 +25,6 @@ async def lifespan(app: FastAPI):
     # Load the model during startup
     logger.info("Initializing ONNX model...")
     try:
-        import os
-
         model_id = os.getenv("MODEL_ID")
         onnx_file = os.getenv("ONNX_FILE")
         execution_provider = os.getenv("EXECUTION_PROVIDER")
