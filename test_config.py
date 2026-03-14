@@ -248,7 +248,8 @@ def test_map_io_names_outputs(config_generator):
 
 def test_pad_token_id_fallback(config_generator):
     """Test inference of pad_token_id from eos_token_id."""
-    base_params = {
+    from typing import Any
+    base_params: dict[str, Any] = {
         "hidden_size": 64,
         "num_attention_heads": 4,
         "head_dim": 16,

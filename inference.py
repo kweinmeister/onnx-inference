@@ -142,7 +142,7 @@ class OnnxTextGenerator:
             pass
 
         # 3. Detect Provider (moved up to handle CoreML specifics)
-        available = onnxruntime.get_available_providers()  # type: ignore
+        available = onnxruntime.get_available_providers()
         candidates = execution_providers or DEFAULT_PROVIDERS
         if isinstance(candidates, str):
             candidates = [candidates]
