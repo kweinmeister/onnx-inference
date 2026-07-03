@@ -1,6 +1,6 @@
 fastapi==0.136.3
 huggingface-hub==1.7.2
-onnx==1.21.0
+onnx==1.22.0
 onnxruntime==1.26.0
 onnxruntime-genai==0.14.1
 pydantic==2.13.4
