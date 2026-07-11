@@ -70,7 +70,7 @@ def create_minimal_onnx(tmp_path):
             "model.embed_tokens.position_embeddings",  # Made up name matching candidate
             TensorProto.FLOAT,
             [context_length, hidden_size],
-            [0.0],  # optimize size, we only care about dims
+            [0.0] * (context_length * hidden_size),  # optimize size, we only care about dims
         )
         initializers.append(pos_embed)
 
@@ -80,7 +80,7 @@ def create_minimal_onnx(tmp_path):
             "model.layers.0.self_attn.q_proj.weight",
             TensorProto.FLOAT,
             [num_heads * head_dim, hidden_size],
-            [0.1],
+            [0.1] * (num_heads * head_dim * hidden_size),
         )
         initializers.append(q_proj)
 
