@@ -2,10 +2,10 @@ import json
 import logging
 import os
 import shutil
-from typing import Any, Dict, Iterator, List, Optional, Union, cast
+from collections.abc import Iterator
+from typing import Any, cast
 
 import onnx
-
 import onnxruntime
 import onnxruntime_genai as _og
 from huggingface_hub import snapshot_download
@@ -34,8 +34,8 @@ DEFAULT_MODEL_ID = "onnx-community/SmolLM2-135M-ONNX"
 
 
 def bundle_onnx_model(
-    input_path: str, output_path: Optional[str] = None
-) -> Optional[str]:
+    input_path: str, output_path: str | None = None
+) -> str | None:
     """
     Bundles an ONNX model with its external data into a single file.
     Critically required for CoreMLExecutionProvider to work on macOS with split models.
@@ -106,9 +106,9 @@ def bundle_onnx_model(
 class OnnxTextGenerator:
     def __init__(
         self,
-        model_id: Optional[str] = DEFAULT_MODEL_ID,
-        onnx_file: Optional[str] = None,
-        execution_providers: Optional[Union[str, List[str]]] = None,
+        model_id: str | None = DEFAULT_MODEL_ID,
+        onnx_file: str | None = None,
+        execution_providers: str | list[str] | None = None,
         num_beams: int = 1,
     ) -> None:
         """
@@ -250,8 +250,8 @@ class OnnxTextGenerator:
         temperature: float = 0.7,
         top_p: float = 0.9,
         repetition_penalty: float = 1.2,
-        num_beams: Optional[int] = None,
-        do_sample: Optional[bool] = None,
+        num_beams: int | None = None,
+        do_sample: bool | None = None,
     ) -> Iterator[tuple[str, dict]]:
         """
         Yields generated tokens one by one using OGA's generator.
@@ -401,8 +401,8 @@ class OnnxTextGenerator:
         temperature: float = 0.7,
         top_p: float = 0.9,
         repetition_penalty: float = 1.2,
-        num_beams: Optional[int] = None,
-        do_sample: Optional[bool] = None,
+        num_beams: int | None = None,
+        do_sample: bool | None = None,
     ) -> dict:
         """
         Full generation wrapper.
@@ -424,7 +424,7 @@ class OnnxTextGenerator:
                 "tokens_generated": int
             }
         """
-        chunks: List[str] = []
+        chunks: list[str] = []
         metadata = {}
         for chunk, meta in self.stream_generate(
             prompt,
@@ -445,7 +445,7 @@ class OnnxTextGenerator:
             "tokens_generated": metadata.get("tokens_generated", 0),
         }
 
-    def _ensure_tokenizer_files(self, repo_root: Optional[str] = None) -> None:
+    def _ensure_tokenizer_files(self, repo_root: str | None = None) -> None:
         """Ensures that tokenizer config files are in the model folder."""
         tokenizer_files = [
             "tokenizer.json",
@@ -497,7 +497,7 @@ class OnnxTextGenerator:
                         logger.warning(f"Failed to copy {filename}: {e}")
 
     def _ensure_genai_config(
-        self, onnx_file: Optional[str] = None, repo_root: Optional[str] = None
+        self, onnx_file: str | None = None, repo_root: str | None = None
     ) -> None:
         """
         Ensures genai_config.json exists in the model folder.
@@ -574,7 +574,7 @@ class OnnxTextGenerator:
             if repo_root:
                 candidate_metadata.append(os.path.join(repo_root, "config.json"))
 
-            hf_config: Dict[str, Any] = {}
+            hf_config: dict[str, Any] = {}
             for meta_path in candidate_metadata:
                 if os.path.exists(meta_path) and os.path.getsize(meta_path) > 0:
                     try:
@@ -625,12 +625,14 @@ class OnnxTextGenerator:
 
             any_changed = False
             # Force the primary decoder model to match our detected best model
-            if "model" in config and "decoder" in config["model"]:
-                # Ensure it's using the correct path
-                if config["model"]["decoder"].get("filename") != full_model_path:
-                    config["model"]["decoder"]["filename"] = full_model_path
-                    logger.info(f"✓ Forced primary decoder to {full_model_path}")
-                    any_changed = True
+            if (
+                "model" in config
+                and "decoder" in config["model"]
+                and config["model"]["decoder"].get("filename") != full_model_path
+            ):
+                config["model"]["decoder"]["filename"] = full_model_path
+                logger.info(f"✓ Forced primary decoder to {full_model_path}")
+                any_changed = True
 
             if self._fix_paths_in_config(config):
                 any_changed = True
@@ -699,7 +701,7 @@ class OnnxTextGenerator:
     def _detect_onnx_model(
         self,
         folder: str,
-        preferred_file: Optional[str] = "model.onnx",
+        preferred_file: str | None = "model.onnx",
         fallback: bool = True,
     ) -> str:
         """Finds the primary ONNX model file.
@@ -789,7 +791,7 @@ class OnnxTextGenerator:
         generator = GenAIConfigGenerator()
         return generator.create_config(hf_config, model_filename, self.model_folder)
 
-    def _get_model_path(self, model_id: str, onnx_file: Optional[str] = None) -> str:
+    def _get_model_path(self, model_id: str, onnx_file: str | None = None) -> str:
         """Downloads model via HF Hub or finds it in cache."""
 
         def check_integrity(folder):
@@ -810,14 +812,10 @@ class OnnxTextGenerator:
                             return True
 
                         # If the .onnx file is > 100MB, it likely doesn't have external data
-                        if (
+                        return (
                             os.path.getsize(os.path.join(root, onnx_file))
                             > 100 * 1024 * 1024
-                        ):
-                            return True
-
-                        # Missing data file for small ONNX
-                        return False
+                        )
                 return False
 
             # 3. Default: Do we have at least ONE .onnx file?
@@ -834,8 +832,7 @@ class OnnxTextGenerator:
         if onnx_file:
             # Strip extension for multi-part matching
             base = onnx_file
-            if base.endswith(".onnx"):
-                base = base[:-5]
+            base = base.removesuffix(".onnx")
 
             # Match recursively throughout the repo (matches 'model.onnx' and 'onnx/model.onnx')
             patterns.append(f"*{base}.onnx*")
