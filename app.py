@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -30,7 +31,7 @@ async def lifespan(app: FastAPI):
         execution_provider = os.getenv("EXECUTION_PROVIDER")
 
         # Initialize with env vars if present, otherwise uses class defaults
-        init_kwargs: Dict[str, Any] = {}
+        init_kwargs: dict[str, Any] = {}
         if model_id:
             init_kwargs["model_id"] = model_id
         if onnx_file:
@@ -155,7 +156,7 @@ async def stream_generate(request: GenerateRequest):
 
     # Capture generator in closure
     gen = generator
-    queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+    queue: asyncio.Queue[str | None] = asyncio.Queue()
     loop = asyncio.get_event_loop()
 
     def producer():
@@ -176,7 +177,7 @@ async def stream_generate(request: GenerateRequest):
             loop.call_soon_threadsafe(queue.put_nowait, None)
         except Exception as e:
             logger.error(f"Error during streaming: {e}")
-            loop.call_soon_threadsafe(queue.put_nowait, f"\n[ERROR: {str(e)}]")
+            loop.call_soon_threadsafe(queue.put_nowait, f"\n[ERROR: {e!s}]")
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
     # Start the generation loop in the background

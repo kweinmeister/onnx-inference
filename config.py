@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, ClassVar
 
 import onnx
 
@@ -10,7 +10,7 @@ class GenAIConfigGenerator:
     """Generates genai_config.json configurations for ONNX Runtime GenAI models."""
 
     # Constants
-    MODEL_PARAM_ALLOWLIST = {
+    MODEL_PARAM_ALLOWLIST: ClassVar[set[str]] = {
         "type",
         "vocab_size",
         "bos_token_id",
@@ -23,7 +23,7 @@ class GenAIConfigGenerator:
         "context_length",
     }
 
-    POS_EMBED_CANDIDATES = [
+    POS_EMBED_CANDIDATES: ClassVar[list[str]] = [
         "cos_cache",
         "sin_cache",
         "position_embeddings",
@@ -31,7 +31,7 @@ class GenAIConfigGenerator:
         "position_ids",
     ]
 
-    IO_CANDIDATES = {
+    IO_CANDIDATES: ClassVar[dict[str, list[str]]] = {
         "inputs": [
             "input_ids",
             "attention_mask",
@@ -48,7 +48,7 @@ class GenAIConfigGenerator:
         "outputs": ["logits", "image_features", "audio_features", "inputs_embeds"],
     }
 
-    SPECIAL_TOKENS_MAP = {
+    SPECIAL_TOKENS_MAP: ClassVar[dict[str, list[str]]] = {
         "eos_token_id": [
             "<eos>",
             "<end_of_turn>",
@@ -65,11 +65,11 @@ class GenAIConfigGenerator:
 
     def create_config(
         self,
-        hf_config: Dict[str, Any],
+        hf_config: dict[str, Any],
         model_filename: str,
         model_folder: str,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates the genai_config.json structure with strict precedence.
 
@@ -147,7 +147,7 @@ class GenAIConfigGenerator:
 
         # 4. Update from Primary ONNX Model (Structural Source of Truth)
         onnx_path = os.path.join(model_folder, model_filename)
-        onnx_info: Dict[str, Any] = {"inputs": [], "outputs": [], "dimensions": {}}
+        onnx_info: dict[str, Any] = {"inputs": [], "outputs": [], "dimensions": {}}
 
         if os.path.exists(onnx_path):
             onnx_info = self._inspect_onnx_model(onnx_path)
@@ -313,21 +313,21 @@ class GenAIConfigGenerator:
 
             params[section] = section_config
 
-    HIDDEN_SIZE_CANDIDATES = [
+    HIDDEN_SIZE_CANDIDATES: ClassVar[list[str]] = [
         "model.embed_tokens.weight",
         "final_layernorm.weight",
         "model.norm.weight",
         "input_layernorm.weight",
     ]
 
-    def _inspect_onnx_model(self, model_path: str) -> Dict[str, Any]:
+    def _inspect_onnx_model(self, model_path: str) -> dict[str, Any]:
         """Inspects ONNX model graph for Inputs, Outputs, and Dimensions."""
         self.logger.info(f"Inspecting ONNX model: {model_path}")
         try:
             model = onnx.load(model_path, load_external_data=False)
             graph = model.graph
 
-            initializers = set(i.name for i in graph.initializer)
+            initializers = {i.name for i in graph.initializer}
             inputs = [i.name for i in graph.input if i.name not in initializers]
             outputs = [o.name for o in graph.output]
 
@@ -403,11 +403,10 @@ class GenAIConfigGenerator:
 
             # 6. Context Length (Architectural Imputation)
             for init in graph.initializer:
-                if any(c in init.name for c in self.POS_EMBED_CANDIDATES):
-                    if len(init.dims) == 2:
-                        max_dim = max(init.dims)
-                        dims["context_length"] = max_dim
-                        break
+                if any(c in init.name for c in self.POS_EMBED_CANDIDATES) and len(init.dims) == 2:
+                    max_dim = max(init.dims)
+                    dims["context_length"] = max_dim
+                    break
 
             return {
                 "inputs": inputs,
@@ -431,7 +430,7 @@ class GenAIConfigGenerator:
 
     def _load_tokenizer_data(
         self, model_folder
-    ) -> Tuple[Dict[str, Any], Dict[str, int]]:
+    ) -> tuple[dict[str, Any], dict[str, int]]:
         """
         Reads tokenizer.json, added_tokens.json, and tokenizer_config.json.
         Returns (params, vocab_map).
@@ -507,8 +506,8 @@ class GenAIConfigGenerator:
 
         return params, vocab_map
 
-    def _load_generation_config(self, model_folder) -> Dict[str, Any]:
-        params: Dict[str, Any] = {}
+    def _load_generation_config(self, model_folder) -> dict[str, Any]:
+        params: dict[str, Any] = {}
         gen_path = os.path.join(model_folder, "generation_config.json")
         if not os.path.exists(gen_path):
             return params
@@ -615,7 +614,7 @@ class GenAIConfigGenerator:
             if r not in params:
                 raise ValueError(f"Missing required parameter '{r}'. Cannot proceed.")
 
-    def _map_io_names(self, onnx_names: List[str], io_type: str) -> Dict[str, str]:
+    def _map_io_names(self, onnx_names: list[str], io_type: str) -> dict[str, str]:
         mapping = {}
 
         # 1. Direct Pattern Match
@@ -630,10 +629,9 @@ class GenAIConfigGenerator:
             if any("past_key_values" in n for n in onnx_names):
                 mapping["past_key_names"] = "past_key_values.%d.key"
                 mapping["past_value_names"] = "past_key_values.%d.value"
-        elif io_type == "outputs":
-            if any("present" in n for n in onnx_names):
-                mapping["present_key_names"] = "present.%d.key"
-                mapping["present_value_names"] = "present.%d.value"
+        elif io_type == "outputs" and any("present" in n for n in onnx_names):
+            mapping["present_key_names"] = "present.%d.key"
+            mapping["present_value_names"] = "present.%d.value"
 
         # 3. Fallback: Direct Mapping (Heuristic)
         # If we encounter an IO name we don't recognize, try to map it using the last segment.
@@ -651,6 +649,6 @@ class GenAIConfigGenerator:
 
         return mapping
 
-    def _filter_model_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _filter_model_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Strict keep-list to avoid polluting config with HF-only junk."""
         return {k: v for k, v in params.items() if k in self.MODEL_PARAM_ALLOWLIST}
