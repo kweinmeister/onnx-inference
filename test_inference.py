@@ -72,9 +72,7 @@ class TestOnnxTextGenerator:
                 if "genai_config.json" in p and exists_results.get("genai_config.json"):
                     return True
                 # Initial check for config.json or other files
-                if "genai_config.json" not in p:
-                    return True
-                return False
+                return "genai_config.json" not in p
 
             with (
                 patch("os.path.exists", side_effect=mock_exists),
@@ -458,9 +456,7 @@ class TestOnnxTextGenerator:
             # Simulate: root config missing, subdir config exists
             def exists_side_effect(path):
                 if path.endswith("genai_config.json"):
-                    if "onnx" in path:  # subdir
-                        return True
-                    return False  # root
+                    return "onnx" in path
                 return True  # model file exists
 
             mock_exists.side_effect = exists_side_effect
@@ -561,9 +557,7 @@ class TestOnnxTextGenerator:
             def exists_side_effect(path):
                 if "config.json" in path:
                     return True
-                if ".data" in path:
-                    return False
-                return True
+                return ".data" not in path
 
             mock_exists.side_effect = exists_side_effect
 
@@ -667,7 +661,7 @@ class TestOnnxTextGenerator:
             patch.object(OnnxTextGenerator, "_ensure_genai_config"),
             patch.object(OnnxTextGenerator, "_ensure_tokenizer_files"),
         ):
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="Load Failed"):
                 OnnxTextGenerator()
 
             assert mock_logger.error.called
@@ -711,9 +705,7 @@ class TestOnnxTextGenerator:
                     return True
                 if p.endswith("model.onnx.data"):
                     return True
-                if "genai_config.json" in p:
-                    return True
-                return False
+                return "genai_config.json" in p
 
             mock_exists.side_effect = exists_side_effect
 
@@ -776,9 +768,7 @@ class TestBundleOnnxModel:
         ):
 
             def exists_side_effect(path):
-                if path == "/output.onnx":
-                    return False
-                return True
+                return path != "/output.onnx"
 
             mock_exists.side_effect = exists_side_effect
 
@@ -832,9 +822,7 @@ class TestBundleOnnxModel:
         ):
             # Input exists, output (default) does not
             def exists_side_effect(path):
-                if path == "/input.onnx":
-                    return True
-                return False
+                return path == "/input.onnx"
 
             mock_exists.side_effect = exists_side_effect
 

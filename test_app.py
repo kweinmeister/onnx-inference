@@ -117,7 +117,9 @@ async def test_lifespan_startup_env_vars(mock_ml_models):
 @pytest.mark.asyncio
 async def test_lifespan_startup_failure(mock_ml_models):
     """Test startup exception handling."""
-    with patch("app.OnnxTextGenerator", side_effect=RuntimeError("Startup Failed")):
-        with pytest.raises(RuntimeError, match="Startup Failed"):
-            async with lifespan(app):
-                pass
+    with (
+        patch("app.OnnxTextGenerator", side_effect=RuntimeError("Startup Failed")),
+        pytest.raises(RuntimeError, match="Startup Failed"),
+    ):
+        async with lifespan(app):
+            pass
