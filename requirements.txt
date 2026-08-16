@@ -1,5 +1,5 @@
 fastapi==0.141.1
-huggingface-hub==1.24.0
+huggingface-hub==1.27.0
 onnx==1.22.0
 onnxruntime==1.28.0
 onnxruntime-genai==0.14.1
