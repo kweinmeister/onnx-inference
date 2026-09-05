@@ -3,5 +3,5 @@ huggingface-hub==1.29.0
 onnx==1.22.0
 onnxruntime==1.29.0
 onnxruntime-genai==0.15.2
-pydantic==2.13.4
+pydantic==2.13.5
 uvicorn==0.52.4
