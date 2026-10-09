@@ -1,4 +1,4 @@
-fastapi==0.141.1
+fastapi==0.142.2
 huggingface-hub==1.32.0
 onnx==1.23.1
 onnxruntime==1.30.0
