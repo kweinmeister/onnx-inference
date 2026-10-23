@@ -4,4 +4,4 @@ onnx==1.23.2
 onnxruntime==1.30.0
 onnxruntime-genai==0.16.0
 pydantic==2.13.5
-uvicorn==0.53.0
+uvicorn==0.54.0
